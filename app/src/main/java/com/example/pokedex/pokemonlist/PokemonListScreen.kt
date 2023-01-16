@@ -16,10 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -27,13 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.request.ImageRequest
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import com.example.pokedex.R
 import com.example.pokedex.data.models.PokedexListEntry
 import com.example.pokedex.ui.theme.RobotoCondensed
-import com.google.accompanist.coil.rememberCoilPainter
 import timber.log.Timber
-
 
 @Composable
 fun PokemonListScreen(
@@ -51,17 +47,16 @@ fun PokemonListScreen(
 
             SearchBar(hint = "Search", modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-            ) { query ->
+                .padding(16.dp)) { query ->
                 viewModel.searchPokemonList(query)
             }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             PokemonList(navController = navController)
         }
     }
 }
-
 
 @Composable
 fun SearchBar(
@@ -117,16 +112,15 @@ fun PokemonList(
         }
         items(itemCount) {
             if (it >= itemCount - 1 && !endReached && !isLoading && !isSearching) {
-                viewModel.loadPokemonPaginated()
+                LaunchedEffect(key1 = true) {
+                    viewModel.loadPokemonPaginated()
+                }
             }
             PokedexRow(rowIndex = it, entries = pokemonList, navController = navController)
         }
     }
 
-    Box(
-        contentAlignment = Center,
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Box(contentAlignment = Center, modifier = Modifier.fillMaxSize()) {
         if (isLoading) {
             CircularProgressIndicator(color = MaterialTheme.colors.primary)
         }
@@ -136,9 +130,7 @@ fun PokemonList(
             }
         }
     }
-
 }
-
 
 @Composable
 fun PokedexEntry(
@@ -147,8 +139,7 @@ fun PokedexEntry(
     modifier: Modifier = Modifier,
     viewModel: PokedexListViewModel = hiltViewModel(),
 ) {
-    val defaultDominantColor = MaterialTheme.colors.onSurface
-    val context = LocalContext.current
+    val defaultDominantColor = MaterialTheme.colors.surface
     var dominantColor by remember { mutableStateOf(defaultDominantColor) }
 
     Box(contentAlignment = Center,
@@ -156,43 +147,35 @@ fun PokedexEntry(
             .shadow(5.dp, RoundedCornerShape(10.dp))
             .clip(RoundedCornerShape(10.dp))
             .aspectRatio(1f)
-            .background(Color.Transparent)
-            //.background(Brush.verticalGradient(listOf(dominantColor, defaultDominantColor)))
+            .background(Brush.verticalGradient(listOf(dominantColor, defaultDominantColor)))
             .clickable {
                 navController.navigate("pokemon_detail_screen/${dominantColor.toArgb()}/${entry.pokemonName}")
-            }
-    ) {
+            }) {
         Column {
 
-            Timber.e("PokedexEntry: " + entry.imageUrl)
+            Timber.e("PokedexEntry: " + entry.pokemonName)
 
-            Image(
-                painter = rememberCoilPainter(
-                    request = ImageRequest.Builder(context)
-                        .data(entry.imageUrl)
-                        .target {
-                            viewModel.calcDominantColor(it) { color ->
+            Image(painter = rememberAsyncImagePainter(
+                model = entry.imageUrl,
+                onState = {
+                    when (it) {
+                        is AsyncImagePainter.State.Success -> {
+                            viewModel.calcDominantColor(it.result.drawable) { color ->
                                 dominantColor = color
                             }
-                        }.build(),
-                    fadeIn = true
-                ),
+                        }
+                        else -> Unit
+                    }
+                }
+            ),
                 contentDescription = entry.pokemonName,
                 modifier = Modifier
                     .size(120.dp)
                     .align(CenterHorizontally)
             )
 
-//            val request = ImageRequest.Builder(context)
-//                .data(entry.imageUrl)
-//                .target {
-//                    viewModel.calcDominantColor(it) { color ->
-//                        dominantColor = color
-//                    }
-//                }.build()
-//            request.context.imageLoader.enqueue(request)
-
-            Text(text = entry.pokemonName,
+            Text(
+                text = entry.pokemonName,
                 fontFamily = RobotoCondensed,
                 fontSize = 20.sp,
                 textAlign = TextAlign.Center,
@@ -200,7 +183,6 @@ fun PokedexEntry(
         }
     }
 }
-
 
 @Composable
 fun PokedexRow(

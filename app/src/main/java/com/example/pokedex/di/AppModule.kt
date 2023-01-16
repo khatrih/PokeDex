@@ -1,5 +1,6 @@
 package com.example.pokedex.di
 
+import android.util.Log
 import com.example.pokedex.data.remote.PokeApi
 import com.example.pokedex.repository.PokemonRepository
 import com.example.pokedex.util.Constants.BASE_URL
@@ -23,8 +24,8 @@ object AppModule {
     @Singleton
     fun providePokeApi(): PokeApi {
         return Retrofit.Builder()
-            .addConverterFactory(GsonConverterFactory.create())
             .baseUrl(BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(PokeApi::class.java)
     }
